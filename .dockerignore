@@ -1,0 +1,12 @@
+**/bin/
+**/obj/
+**/TestResults/
+.local/
+.git/
+.vs/
+.vscode/
+.DS_Store
+*.db
+*.db-*
+.env
+.env.*

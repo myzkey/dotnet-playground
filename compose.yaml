@@ -1,0 +1,61 @@
+name: dotnet-playground-taskapi
+
+services:
+  api:
+    build:
+      context: .
+      target: runtime
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      # ローカルDB接続ではKerberos/GSSAPIを使用しない。
+      ConnectionStrings__DefaultConnection: Host=postgres;Port=5432;Database=taskapi;Username=taskapi;Password=taskapi_local;GSS Encryption Mode=Disable
+    ports:
+      - "127.0.0.1:5080:8080"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+  migrate:
+    build:
+      context: .
+      target: build
+    command: ["ef", "database", "update", "--project", "TaskApi", "--configuration", "Release", "--no-build"]
+    environment:
+      ConnectionStrings__DefaultConnection: Host=postgres;Port=5432;Database=taskapi;Username=taskapi;Password=taskapi_local;GSS Encryption Mode=Disable
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  test:
+    profiles: ["tools"]
+    build:
+      context: .
+      target: test
+    environment:
+      TASKAPI_TEST_CONNECTION: Host=postgres;Port=5432;Database=postgres;Username=taskapi;Password=taskapi_local;GSS Encryption Mode=Disable
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  postgres:
+    image: postgres:18.6
+    environment:
+      POSTGRES_DB: taskapi
+      POSTGRES_USER: taskapi
+      POSTGRES_PASSWORD: taskapi_local
+      POSTGRES_INITDB_ARGS: --auth-host=scram-sha-256 --auth-local=scram-sha-256
+      TZ: UTC
+    ports:
+      - "127.0.0.1:55432:5432"
+    volumes:
+      # PostgreSQL 18の公式イメージはこの配下にバージョン別データを置く。
+      - postgres_data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\""]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+      start_period: 5s
+
+volumes:
+  postgres_data:
