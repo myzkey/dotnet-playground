@@ -12,7 +12,7 @@
     <PackageReference Include="xunit.v3" Version="4.0.2" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="../TaskApi/TaskApi.csproj" />
+    <ProjectReference Include="../../src/TaskApi/TaskApi.csproj" />
     <Using Include="Xunit" />
   </ItemGroup>
 </Project>

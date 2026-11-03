@@ -19,7 +19,7 @@ services:
     build:
       context: .
       target: build
-    command: ["ef", "database", "update", "--project", "TaskApi", "--configuration", "Release", "--no-build"]
+    command: ["ef", "database", "update", "--project", "src/TaskApi", "--configuration", "Release", "--no-build"]
     environment:
       ConnectionStrings__DefaultConnection: Host=postgres;Port=5432;Database=taskapi;Username=taskapi;Password=taskapi_local;GSS Encryption Mode=Disable
     depends_on:

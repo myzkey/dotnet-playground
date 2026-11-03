@@ -65,7 +65,7 @@ curl -i http://localhost:5080/api/tasks
 
 API・Migration・テストにはComposeから接続文字列を渡します。.NETの環境変数`ConnectionStrings__DefaultConnection`は設定キー`ConnectionStrings:DefaultConnection`を上書きします。コンテナ内の`localhost`はそのコンテナ自身を指すため、DBにはサービス名`postgres`で接続します。
 
-公開ポートはループバックに限定しています。DB認証情報とsuperuserロールは開発用です。接続先や認証情報を変更する場合は、`compose.yaml`のPostgreSQL・API・Migration・テストの設定を揃えてください。`appsettings.json`はAPIをホストで動かす場合の既定値です。
+公開ポートはループバックに限定しています。DB認証情報とsuperuserロールは開発用です。接続先や認証情報を変更する場合は、`compose.yaml`のPostgreSQL・API・Migration・テストの設定を揃えてください。`src/TaskApi/appsettings.json`はAPIをホストで動かす場合の既定値です。
 
 ```bash
 # 全サービスを停止・コンテナとネットワークを削除（DBデータは残る）
@@ -194,36 +194,39 @@ Titleは必須・空白だけ不可・最大200文字です。文字数はDataAn
 ## 3. ファイル構成と読む順番
 
 ```text
-TaskApi.slnx                         # ソリューション（APIとテストをまとめる）
+TaskApi.slnx                         # APIとテストをまとめるソリューション
 global.json                         # SDKとテストランナー
 dotnet-tools.json                   # ローカルdotnet-efのバージョン
 Dockerfile                          # ビルド・テスト・APIランタイムの各ステージ
 .dockerignore                       # ビルド対象外のローカルファイル
 compose.yaml                        # API・Migration・PostgreSQL・テスト
 scripts/db.sh                       # Docker Composeの操作ラッパー
-TaskApi/
-├── Controllers/TasksController.cs
-├── Application/
-│   ├── Interfaces/ITaskService.cs
-│   └── Services/TaskService.cs
-├── Domain/Entities/TaskItem.cs
-├── Infrastructure/
-│   ├── Data/
-│   │   ├── AppDbContext.cs
-│   │   └── Migrations/              # Migrationとモデルスナップショット
-│   └── Repositories/
-│       ├── ITaskRepository.cs
-│       └── TaskRepository.cs
-├── Contracts/
-│   ├── Requests/                   # CreateTaskRequest / UpdateTaskRequest
-│   └── Responses/TaskResponse.cs
-├── Program.cs
-├── appsettings.json
-└── TaskApi.csproj
-TaskApi.Tests/
-├── TaskServiceTests.cs
-├── Doubles/                        # Fake Repository / Stub時計
-└── Integration/                    # HTTP + 実DBのテスト
+src/
+└── TaskApi/
+    ├── Controllers/TasksController.cs
+    ├── Application/
+    │   ├── Interfaces/ITaskService.cs
+    │   └── Services/TaskService.cs
+    ├── Domain/Entities/TaskItem.cs
+    ├── Infrastructure/
+    │   ├── Data/
+    │   │   ├── AppDbContext.cs
+    │   │   └── Migrations/
+    │   └── Repositories/
+    │       ├── ITaskRepository.cs
+    │       └── TaskRepository.cs
+    ├── Contracts/
+    │   ├── Requests/
+    │   └── Responses/TaskResponse.cs
+    ├── Program.cs
+    ├── appsettings.json
+    └── TaskApi.csproj
+tests/
+└── TaskApi.Tests/
+    ├── TaskApi.Tests.csproj
+    ├── TaskServiceTests.cs
+    ├── Doubles/                     # Fake Repository / Stub時計
+    └── Integration/                 # HTTP + 実DBのテスト
 ```
 
 最初に`Program.cs`→`TasksController`→`TaskService`→`TaskRepository`→`AppDbContext`→`TaskServiceTests`の順に読むと、依存関係と実行のつながりを追いやすくなります。`TaskItem`という名前は、非同期処理の`System.Threading.Tasks.Task`との衝突を避けるためです。
@@ -364,8 +367,8 @@ EFのLINQも任意のC#コードをSQL化できるわけではありません。
 # Entityやモデル設定を変更した後、生成ファイルをホストへ保存
 # --buildで変更後のソースをSDKイメージへ反映する
 docker compose run --rm --build \
-  --volume "$PWD/TaskApi/Infrastructure/Data/Migrations:/src/TaskApi/Infrastructure/Data/Migrations" \
-  migrate ef migrations add DescribeYourChange --project TaskApi \
+  --volume "$PWD/src/TaskApi/Infrastructure/Data/Migrations:/workspace/src/TaskApi/Infrastructure/Data/Migrations" \
+  migrate ef migrations add DescribeYourChange --project src/TaskApi \
   --configuration Release --no-build --output-dir Infrastructure/Data/Migrations
 
 # 生成されたUp/Downを確認し、MigrationとAPIを再ビルドして起動
@@ -373,11 +376,11 @@ docker compose up --build -d
 
 # 未反映のモデル変更がないか確認
 docker compose run --rm --build migrate ef migrations has-pending-model-changes \
-  --project TaskApi --configuration Release --no-build
+  --project src/TaskApi --configuration Release --no-build
 
 # SQLとして確認（最初から最新まで）
 docker compose run --rm --build migrate ef migrations script \
-  --project TaskApi --configuration Release --no-build
+  --project src/TaskApi --configuration Release --no-build
 ```
 
 EF CoreのMigrationはC#コードです。Drizzle Kitでは`drizzle-kit generate`でSQL Migrationを生成し、`drizzle-kit migrate`で適用できます。どちらも適用前に生成物を確認します。[DrizzleのMigration](https://orm.drizzle.team/docs/migrations) `EnsureCreated`はMigration履歴を使うスキーマ更新の代替ではないので混在させません。
